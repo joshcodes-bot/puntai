@@ -46,6 +46,7 @@ function ConfBar({ pct }: { pct: number }) {
 }
 
 export default function AIPicks() {
+  const [day, setDay]                 = useState<'today' | 'tomorrow'>('today')
   const [picks, setPicks]             = useState<Pick[]>([])
   const [loading, setLoading]         = useState(true)
   const [refreshing, setRefreshing]   = useState(false)
@@ -57,11 +58,12 @@ export default function AIPicks() {
   const [posting, setPosting]         = useState(false)
   const [posted, setPosted]           = useState(false)
 
-  const load = useCallback(async (refresh = false) => {
+  const load = useCallback(async (refresh = false, forDay?: 'today' | 'tomorrow') => {
     refresh ? setRefreshing(true) : setLoading(true)
     setError('')
+    const d_param = forDay ?? day
     try {
-      const r = await fetch('/api/picks')
+      const r = await fetch(`/api/picks?day=${d_param}`)
       const d = await r.json()
       if (d.picks?.length) {
         setPicks(d.picks)
@@ -74,6 +76,15 @@ export default function AIPicks() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  function switchDay(d: 'today' | 'tomorrow') {
+    if (d === day) return
+    setDay(d)
+    setFilter('All')
+    setPicks([])
+    setLegs([])
+    load(false, d)
+  }
 
   function toggleLeg(pick: Pick) {
     setLegs(prev =>
@@ -119,7 +130,7 @@ export default function AIPicks() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display text-3xl tracking-wide text-white">TODAY'S PICKS</h2>
+          <h2 className="font-display text-3xl tracking-wide text-white">AI PICKS</h2>
           <p className="text-xs text-[#555] mt-1">Fetching live odds & analysing…</p>
         </div>
       </div>
@@ -137,7 +148,7 @@ export default function AIPicks() {
   // ── ERROR ──
   if (error && !picks.length) return (
     <div>
-      <h2 className="font-display text-3xl tracking-wide text-white mb-4">TODAY'S PICKS</h2>
+      <h2 className="font-display text-3xl tracking-wide text-white mb-4">AI PICKS</h2>
       <div className="bg-[#141414] rounded-2xl border border-[#222] p-10 text-center">
         <div className="text-4xl mb-3">📭</div>
         <p className="text-sm text-[#777] mb-5 leading-relaxed max-w-xs mx-auto">{error}</p>
@@ -151,9 +162,9 @@ export default function AIPicks() {
   return (
     <div>
       {/* ── HEADER ── */}
-      <div className="flex items-start justify-between mb-1">
+      <div className="flex items-start justify-between mb-3">
         <div>
-          <h2 className="font-display text-3xl tracking-wide text-white">TODAY'S PICKS</h2>
+          <h2 className="font-display text-3xl tracking-wide text-white">AI PICKS</h2>
           <p className="text-xs text-[#555] mt-1">
             {meta.gamesAnalysed > 0 && `${meta.gamesAnalysed} games analysed · `}
             {meta.generatedAt && `Updated ${new Date(meta.generatedAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}`}
@@ -166,6 +177,23 @@ export default function AIPicks() {
         >
           {refreshing ? 'Refreshing…' : '↻ Refresh'}
         </button>
+      </div>
+
+      {/* ── DAY TABS ── */}
+      <div className="flex gap-2 mb-4">
+        {(['today', 'tomorrow'] as const).map(d => (
+          <button
+            key={d}
+            onClick={() => switchDay(d)}
+            className={`text-xs tracking-widest uppercase px-5 py-2 rounded-full border font-medium transition-all ${
+              day === d
+                ? 'bg-[#d4ff00] text-black border-[#d4ff00]'
+                : 'text-[#555] border-[#2a2a2a] hover:text-white hover:border-[#555]'
+            }`}
+          >
+            {d === 'today' ? '📅 Today' : '📆 Tomorrow'}
+          </button>
+        ))}
       </div>
 
       {/* ── MULTI BUILDER ── */}
