@@ -18,8 +18,18 @@ export default async function LeaderboardPage() {
     .order('rank', { ascending: true })
     .limit(50)
 
-  const entries = rows ?? []
-  const userRank = entries.findIndex(e => e.user_id === user?.id) + 1
+  const entries = (rows ?? []) as Array<{
+  user_id: string
+  full_name: string | null
+  avatar_initials: string | null
+  tier: string
+  total_punts: number
+  wins: number
+  win_rate: number
+  total_profit: number
+  rank: number
+}>
+const userRank = entries.findIndex(e => e.user_id === user?.id) + 1
 
   return (
     <div className="p-10 max-w-[900px] mx-auto animate-fade-up">
