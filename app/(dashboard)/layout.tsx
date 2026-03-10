@@ -1,30 +1,22 @@
-import type { Metadata } from 'next'
-import { Bebas_Neue, IBM_Plex_Mono } from 'next/font/google'
-import './globals.css'
+import { redirect } from 'next/navigation'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
+import Sidebar from '@/components/layout/Sidebar'
 
-const bebasNeue = Bebas_Neue({
-  weight: '400',
-  subsets: ['latin'],
-  variable: '--font-bebas',
-})
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-const ibmPlexMono = IBM_Plex_Mono({
-  weight: ['300', '400', '500'],
-  subsets: ['latin'],
-  variable: '--font-ibm-mono',
-})
+  const { data: profile } = await supabase
+    .from('profiles').select('*').eq('id', user.id).single()
 
-export const metadata: Metadata = {
-  title: 'PUNT.AI — AI Betting Platform',
-  description: 'AI-powered predictions for serious bettors.',
-}
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${bebasNeue.variable} ${ibmPlexMono.variable} bg-black text-white font-mono`}>
+    <div className="flex min-h-screen bg-[#080808]">
+      <Sidebar profile={profile as any} />
+      {/* pt-14 on mobile for top bar, pb-20 for bottom nav, lg resets both */}
+      <main className="flex-1 overflow-auto pt-14 pb-20 lg:pt-0 lg:pb-0">
         {children}
-      </body>
-    </html>
+      </main>
+    </div>
   )
 }
