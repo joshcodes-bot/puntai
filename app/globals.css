@@ -60,3 +60,13 @@ body {
     repeating-linear-gradient(0deg,   transparent, transparent 39px, #1c1c1c 39px, #1c1c1c 40px),
     repeating-linear-gradient(90deg,  transparent, transparent 39px, #1c1c1c 39px, #1c1c1c 40px);
 }
+
+/* Safe area for iPhone home bar */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Prevent content hiding behind bottom nav on mobile */
+@media (max-width: 1023px) {
+  body { background: #080808; }
+}
