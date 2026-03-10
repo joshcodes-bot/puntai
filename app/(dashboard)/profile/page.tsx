@@ -18,15 +18,9 @@ export default function ProfilePage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (data) {
-<<<<<<< HEAD
+     if (data) {
         setProfile(data)
-        setFullName(data.full_name ?? '')
-=======
-        const p = data as typeof profile
-        setProfile(p)
         setFullName((data as any).full_name ?? '')
->>>>>>> 52d7351815ebcf8c7b6989e2306261e4ef65e991
       }
       setEmail(user.email ?? '')
       setLoading(false)
