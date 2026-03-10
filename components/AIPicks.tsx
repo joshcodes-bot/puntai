@@ -191,7 +191,7 @@ export default function AIPicks() {
                 : 'text-[#555] border-[#2a2a2a] hover:text-white hover:border-[#555]'
             }`}
           >
-            {d === 'today' ? '📅 Today' : '📆 Tomorrow'}
+            {d === 'today' ? '📅 Today' : '📆 Upcoming'}
           </button>
         ))}
       </div>
