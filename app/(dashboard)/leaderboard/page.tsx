@@ -11,7 +11,6 @@ export default async function LeaderboardPage() {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Query leaderboard — aggregate from punts + profiles
   const { data: rows } = await supabase
     .from('leaderboard_view')
     .select('*')
@@ -19,17 +18,7 @@ export default async function LeaderboardPage() {
     .limit(50)
 
   const entries = (rows ?? []) as any[]
-  user_id: string
-  full_name: string | null
-  avatar_initials: string | null
-  tier: string
-  total_punts: number
-  wins: number
-  win_rate: number
-  total_profit: number
-  rank: number
-}>
-const userRank = entries.findIndex(e => e.user_id === user?.id) + 1
+  const userRank = entries.findIndex((e: any) => e.user_id === user?.id) + 1
 
   return (
     <div className="p-10 max-w-[900px] mx-auto animate-fade-up">
@@ -40,9 +29,8 @@ const userRank = entries.findIndex(e => e.user_id === user?.id) + 1
         <p className="text-[11px] text-[#555] mt-2">Ranked by net profit · Updated live</p>
       </div>
 
-      {/* Your rank callout */}
       {userRank > 0 && (
-        <div className="border border-[#d4ff00] px-6 py-4 mb-8 flex items-center justify-between animate-fade-up-1">
+        <div className="border border-[#d4ff00] px-6 py-4 mb-8 flex items-center justify-between">
           <div className="text-[11px] tracking-[2px] uppercase text-[#555]">Your Rank</div>
           <div className="font-display text-[40px] text-[#d4ff00] leading-none">#{userRank}</div>
         </div>
@@ -63,17 +51,12 @@ const userRank = entries.findIndex(e => e.user_id === user?.id) + 1
             </tr>
           </thead>
           <tbody>
-            {entries.map((entry, i) => {
+            {entries.map((entry: any, i: number) => {
               const isMe = entry.user_id === user?.id
               return (
-                <tr
-                  key={entry.user_id}
-                  className={`transition-colors ${isMe ? 'bg-[#d4ff0008] border-l-2 border-l-[#d4ff00]' : 'hover:bg-[#1c1c1c]'}`}
-                >
+                <tr key={entry.user_id} className={`transition-colors ${isMe ? 'bg-[#d4ff0008] border-l-2 border-l-[#d4ff00]' : 'hover:bg-[#1c1c1c]'}`}>
                   <td className="px-4 py-4 border-b border-[#2a2a2a]">
-                    <span className={`font-display text-[20px] leading-none ${i < 3 ? 'text-[#d4ff00]' : 'text-[#555]'}`}>
-                      #{entry.rank}
-                    </span>
+                    <span className={`font-display text-[20px] leading-none ${i < 3 ? 'text-[#d4ff00]' : 'text-[#555]'}`}>#{entry.rank}</span>
                   </td>
                   <td className="px-4 py-4 border-b border-[#2a2a2a]">
                     <div className="flex items-center gap-3">
@@ -81,7 +64,7 @@ const userRank = entries.findIndex(e => e.user_id === user?.id) + 1
                         {entry.avatar_initials ?? '??'}
                       </div>
                       <span className={`text-[13px] ${isMe ? 'text-[#d4ff00]' : 'text-white'}`}>
-                        {entry.full_name ?? 'Anonymous'} {isMe && <span className="text-[9px] tracking-[1px] text-[#555]">(you)</span>}
+                        {entry.full_name ?? 'Anonymous'} {isMe && <span className="text-[9px] text-[#555]">(you)</span>}
                       </span>
                     </div>
                   </td>
@@ -100,9 +83,7 @@ const userRank = entries.findIndex(e => e.user_id === user?.id) + 1
                       </div>
                     </div>
                   </td>
-                  <td className={`px-4 py-4 border-b border-[#2a2a2a] font-display text-[18px] leading-none ${
-                    entry.total_profit >= 0 ? 'text-[#d4ff00]' : 'text-[#ff2d2d]'
-                  }`}>
+                  <td className={`px-4 py-4 border-b border-[#2a2a2a] font-display text-[18px] leading-none ${entry.total_profit >= 0 ? 'text-[#d4ff00]' : 'text-[#ff2d2d]'}`}>
                     {entry.total_profit >= 0 ? '+' : ''}${Number(entry.total_profit).toFixed(0)}
                   </td>
                 </tr>
