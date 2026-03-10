@@ -30,20 +30,28 @@ export async function GET(req: Request) {
       return NextResponse.json({ picks: [], error: 'Missing API keys' }, { status: 500 })
     }
 
-    // Build time window
+    // Build time window — use NZT offset (UTC+13 standard, UTC+13 daylight)
+    // We add 13h to UTC to get NZ "today", then build windows accordingly
     const now = new Date()
+    const NZ_OFFSET_MS = 13 * 60 * 60 * 1000 // NZT UTC+13
+    const nowNZ = new Date(now.getTime() + NZ_OFFSET_MS)
+
     let from: Date, to: Date
 
     if (day === 'tomorrow') {
-      from = new Date(now)
-      from.setDate(from.getDate() + 1)
-      from.setHours(0, 0, 0, 0)
-      to = new Date(from)
-      to.setHours(23, 59, 59, 999)
-    } else {
+      // "Upcoming" — next 5 days from now (covers weekend rounds, fixtures posted early)
       from = new Date(now)
       to = new Date(now)
+      to.setDate(to.getDate() + 5)
       to.setHours(23, 59, 59, 999)
+    } else {
+      // "Today" in NZT — from now until end of NZ calendar day
+      from = new Date(now)
+      // End of today in NZT = start of NZT tomorrow midnight minus 1ms, converted back to UTC
+      const nzTomorrowMidnight = new Date(nowNZ)
+      nzTomorrowMidnight.setDate(nzTomorrowMidnight.getDate() + 1)
+      nzTomorrowMidnight.setHours(0, 0, 0, 0)
+      to = new Date(nzTomorrowMidnight.getTime() - NZ_OFFSET_MS)
     }
 
     // Fetch all sports in parallel
@@ -78,7 +86,7 @@ export async function GET(req: Request) {
     }
 
     if (allGames.length === 0) {
-      const label = day === 'tomorrow' ? 'tomorrow' : 'today'
+      const label = day === 'tomorrow' ? 'the next 5 days' : 'today'
       return NextResponse.json({
         picks: [],
         error: `No games found for ${label}. The leagues may be on a break, or odds aren't posted yet.`,
@@ -87,8 +95,8 @@ export async function GET(req: Request) {
     }
 
     const dateLabel = day === 'tomorrow'
-      ? from.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
-      : new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+      ? `the next few days (${from.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })} onwards)`
+      : nowNZ.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
