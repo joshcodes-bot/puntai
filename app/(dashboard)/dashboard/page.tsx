@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 import type { Profile, Punt } from '@/types/database'
 
 const AI_PICKS = [

@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 const TIER_STYLES: Record<string, string> = {
   Platinum: 'text-[#e5e4e2] border-[#e5e4e2]',
