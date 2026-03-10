@@ -37,9 +37,9 @@ export default function ProfilePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
-    const { error: err } = await supabase
-      .from('profiles')
-      .update({ full_name: fullName, avatar_initials: initials, updated_at: new Date().toISOString() } as any)
+    const { error: err } = await (supabase
+      .from('profiles') as any)
+      .update({ full_name: fullName, avatar_initials: initials, updated_at: new Date().toISOString() })
       .eq('id', user.id)
     setSaving(false)
     if (err) setError(err.message)
