@@ -2,26 +2,25 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import type { Punt } from '@/types/database'
 
-const RESULT_STYLES: Record<string, string> = {
-  won:     'bg-[#d4ff00] text-black',
-  lost:    'bg-[#2a2a2a] text-[#555]',
-  pending: 'border border-[#555] text-[#555]',
-  void:    'bg-[#2a2a2a] text-[#555]',
+const FILTERS = ['all', 'pending', 'won', 'lost'] as const
+type Filter = typeof FILTERS[number]
+
+const RESULT_STYLE: Record<string, string> = {
+  won:     'bg-[#22c55e20] text-[#22c55e]',
+  lost:    'bg-[#ff444420] text-[#ff4444]',
+  pending: 'bg-[#ffffff10] text-[#888]',
+  void:    'bg-[#ffffff10] text-[#555]',
 }
 
 export default function PuntsPage() {
-  const [punts, setPunts] = useState<Punt[]>([])
-  const [loading, setLoading] = useState(true)
+  const [punts, setPunts]       = useState<any[]>([])
+  const [loading, setLoading]   = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [filter, setFilter] = useState<'all' | 'pending' | 'won' | 'lost'>('all')
-
-  const [form, setForm] = useState({
-    event: '', pick: '', odds: '', stake: '', event_date: '',
-  })
+  const [error, setError]       = useState('')
+  const [filter, setFilter]     = useState<Filter>('all')
+  const [form, setForm]         = useState({ event: '', pick: '', odds: '', stake: '', event_date: '' })
 
   const supabase = createClient()
 
@@ -31,158 +30,116 @@ export default function PuntsPage() {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase
-      .from('punts')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-    setPunts((data ?? []) as Punt[])
+    const { data } = await supabase.from('punts').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+    setPunts(data ?? [])
     setLoading(false)
   }
 
   async function submitPunt(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!form.event || !form.pick || !form.odds || !form.stake || !form.event_date) {
-      return setError('All fields required.')
-    }
-    const odds = parseFloat(form.odds)
-    const stake = parseFloat(form.stake)
+    const odds = parseFloat(form.odds), stake = parseFloat(form.stake)
+    if (!form.event || !form.pick || !form.odds || !form.stake || !form.event_date) return setError('All fields required.')
     if (isNaN(odds) || odds <= 1) return setError('Odds must be greater than 1.')
     if (isNaN(stake) || stake <= 0) return setError('Stake must be positive.')
-
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
     const { error: err } = await (supabase.from('punts') as any).insert({
-      user_id: user.id,
-      event: form.event,
-      pick: form.pick,
-      odds,
-      stake,
-      event_date: form.event_date,
-      result: 'pending',
-      payout: 0,
+      user_id: user.id, event: form.event, pick: form.pick,
+      odds, stake, result: 'pending', payout: 0, event_date: form.event_date,
     })
-
-    if (err) {
-      setError(err.message)
-    } else {
-      setForm({ event: '', pick: '', odds: '', stake: '', event_date: '' })
-      setShowForm(false)
-      await fetchPunts()
-    }
+    if (err) setError(err.message)
+    else { setForm({ event: '', pick: '', odds: '', stake: '', event_date: '' }); setShowForm(false); await fetchPunts() }
     setSubmitting(false)
   }
 
-  const filtered = filter === 'all' ? punts : punts.filter(p => p.result === filter)
-  const won = punts.filter(p => p.result === 'won')
-  const totalStaked = punts.reduce((s, p) => s + p.stake, 0)
-  const totalPayout = won.reduce((s, p) => s + p.payout, 0)
-  const profit = totalPayout - totalStaked
+  const filtered  = filter === 'all' ? punts : punts.filter(p => p.result === filter)
+  const won       = punts.filter(p => p.result === 'won')
+  const profit    = won.reduce((s: number, p: any) => s + p.payout, 0) - punts.reduce((s: number, p: any) => s + p.stake, 0)
+  const winRate   = punts.filter(p => p.result !== 'pending' && p.result !== 'void').length
+    ? Math.round(won.length / punts.filter(p => p.result !== 'pending' && p.result !== 'void').length * 100) : 0
 
   return (
-    <div className="p-10 max-w-[1000px] mx-auto animate-fade-up">
-      <div className="flex items-end justify-between mb-10">
+    <div className="p-5 lg:p-8 max-w-[900px] mx-auto animate-fade-up">
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-display text-[64px] leading-none tracking-wide">
+          <h1 className="font-display text-4xl lg:text-5xl leading-none tracking-wide text-white">
             MY <span className="text-[#d4ff00]">PUNTS</span>
           </h1>
-          <p className="text-[11px] text-[#555] mt-2">{punts.length} total · track your bets</p>
+          <p className="text-xs text-[#555] mt-1">{punts.length} total</p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="bg-[#d4ff00] text-black font-display text-[18px] tracking-[2px] px-6 py-3 hover:opacity-90 transition-all"
+          className="bg-[#d4ff00] text-black font-display text-base tracking-widest px-5 py-2.5 rounded-xl hover:opacity-90 transition-all"
         >
-          {showForm ? '✕ CANCEL' : '+ NEW PUNT'}
+          {showForm ? '✕ Cancel' : '+ New Punt'}
         </button>
       </div>
 
-      {/* Quick stats */}
-      <div className="grid grid-cols-4 border border-[#2a2a2a] mb-8">
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-6">
         {[
-          { label: 'Total Punts', value: punts.length },
+          { label: 'Total', value: punts.length },
           { label: 'Wins', value: won.length },
-          { label: 'Win Rate', value: punts.length ? `${Math.round((won.length / punts.length) * 100)}%` : '—' },
-          { label: 'Net Profit', value: `${profit >= 0 ? '+' : ''}$${profit.toFixed(2)}`, lime: profit > 0, red: profit < 0 },
-        ].map(({ label, value, lime, red }) => (
-          <div key={label} className="px-5 py-5 border-r border-[#2a2a2a] last:border-r-0">
-            <div className="text-[9px] tracking-[3px] uppercase text-[#555] mb-2">{label}</div>
-            <div className={`font-display text-[36px] leading-none ${lime ? 'text-[#d4ff00]' : red ? 'text-[#ff2d2d]' : 'text-white'}`}>{value}</div>
+          { label: 'Win Rate', value: `${winRate}%` },
+          { label: 'Profit', value: `${profit >= 0 ? '+' : ''}$${profit.toFixed(0)}`, green: profit > 0, red: profit < 0 },
+        ].map(({ label, value, green, red }: any) => (
+          <div key={label} className="bg-[#141414] border border-[#222] rounded-xl px-4 py-3.5">
+            <div className="text-[10px] text-[#555] uppercase tracking-widest mb-1">{label}</div>
+            <div className={`font-display text-2xl leading-none ${green ? 'text-[#22c55e]' : red ? 'text-[#ff4444]' : 'text-white'}`}>{value}</div>
           </div>
         ))}
       </div>
 
       {/* New punt form */}
       {showForm && (
-        <div className="border border-[#d4ff00] p-6 mb-8 animate-fade-up">
-          <h3 className="font-display text-[24px] tracking-wide mb-6">LOG A PUNT</h3>
-          <form onSubmit={submitPunt}>
-            {error && <div className="text-[11px] text-[#ff2d2d] border border-[#ff2d2d] px-4 py-3 mb-4">{error}</div>}
-            <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="bg-[#141414] border border-[#d4ff00] rounded-2xl p-5 mb-6 animate-fade-up">
+          <h3 className="font-display text-xl text-white tracking-wide mb-5">LOG A PUNT</h3>
+          <form onSubmit={submitPunt} className="space-y-3">
+            {error && <div className="text-xs text-[#ff4444] border border-[#ff4444] px-4 py-3 rounded-xl">{error}</div>}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[9px] tracking-[3px] uppercase text-[#555] mb-2">Event</label>
-                <input
-                  value={form.event}
-                  onChange={e => setForm({ ...form, event: e.target.value })}
+                <label className="block text-[10px] text-[#555] uppercase tracking-widest mb-1.5">Event</label>
+                <input value={form.event} onChange={e => setForm({ ...form, event: e.target.value })}
                   placeholder="e.g. Man City vs Arsenal"
-                  className="w-full bg-[#1c1c1c] border border-[#2a2a2a] text-white font-mono text-[13px] px-4 py-3 outline-none focus:border-[#d4ff00] transition-colors placeholder-[#555]"
-                />
+                  className="w-full bg-[#0a0a0a] border border-[#222] text-white text-sm px-4 py-3 rounded-xl outline-none focus:border-[#d4ff00] transition-colors placeholder-[#444]" />
               </div>
               <div>
-                <label className="block text-[9px] tracking-[3px] uppercase text-[#555] mb-2">Your Pick</label>
-                <input
-                  value={form.pick}
-                  onChange={e => setForm({ ...form, pick: e.target.value })}
+                <label className="block text-[10px] text-[#555] uppercase tracking-widest mb-1.5">Your Pick</label>
+                <input value={form.pick} onChange={e => setForm({ ...form, pick: e.target.value })}
                   placeholder="e.g. Man City"
-                  className="w-full bg-[#1c1c1c] border border-[#2a2a2a] text-white font-mono text-[13px] px-4 py-3 outline-none focus:border-[#d4ff00] transition-colors placeholder-[#555]"
-                />
+                  className="w-full bg-[#0a0a0a] border border-[#222] text-white text-sm px-4 py-3 rounded-xl outline-none focus:border-[#d4ff00] transition-colors placeholder-[#444]" />
               </div>
               <div>
-                <label className="block text-[9px] tracking-[3px] uppercase text-[#555] mb-2">Odds (decimal)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.odds}
-                  onChange={e => setForm({ ...form, odds: e.target.value })}
-                  placeholder="e.g. 2.10"
-                  className="w-full bg-[#1c1c1c] border border-[#2a2a2a] text-white font-mono text-[13px] px-4 py-3 outline-none focus:border-[#d4ff00] transition-colors placeholder-[#555]"
-                />
+                <label className="block text-[10px] text-[#555] uppercase tracking-widest mb-1.5">Odds</label>
+                <input type="number" step="0.01" value={form.odds} onChange={e => setForm({ ...form, odds: e.target.value })}
+                  placeholder="2.10"
+                  className="w-full bg-[#0a0a0a] border border-[#222] text-white text-sm px-4 py-3 rounded-xl outline-none focus:border-[#d4ff00] transition-colors placeholder-[#444]" />
               </div>
               <div>
-                <label className="block text-[9px] tracking-[3px] uppercase text-[#555] mb-2">Stake ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.stake}
-                  onChange={e => setForm({ ...form, stake: e.target.value })}
-                  placeholder="e.g. 50"
-                  className="w-full bg-[#1c1c1c] border border-[#2a2a2a] text-white font-mono text-[13px] px-4 py-3 outline-none focus:border-[#d4ff00] transition-colors placeholder-[#555]"
-                />
+                <label className="block text-[10px] text-[#555] uppercase tracking-widest mb-1.5">Stake ($)</label>
+                <input type="number" step="0.01" value={form.stake} onChange={e => setForm({ ...form, stake: e.target.value })}
+                  placeholder="50"
+                  className="w-full bg-[#0a0a0a] border border-[#222] text-white text-sm px-4 py-3 rounded-xl outline-none focus:border-[#d4ff00] transition-colors placeholder-[#444]" />
               </div>
-              <div className="col-span-2">
-                <label className="block text-[9px] tracking-[3px] uppercase text-[#555] mb-2">Event Date</label>
-                <input
-                  type="date"
-                  value={form.event_date}
-                  onChange={e => setForm({ ...form, event_date: e.target.value })}
-                  className="w-full bg-[#1c1c1c] border border-[#2a2a2a] text-white font-mono text-[13px] px-4 py-3 outline-none focus:border-[#d4ff00] transition-colors"
-                />
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] text-[#555] uppercase tracking-widest mb-1.5">Event Date</label>
+                <input type="date" value={form.event_date} onChange={e => setForm({ ...form, event_date: e.target.value })}
+                  className="w-full bg-[#0a0a0a] border border-[#222] text-white text-sm px-4 py-3 rounded-xl outline-none focus:border-[#d4ff00] transition-colors" />
               </div>
             </div>
             {form.odds && form.stake && (
-              <div className="mb-4 px-4 py-3 bg-[#1c1c1c] border border-[#2a2a2a] text-[12px] text-[#888]">
-                Potential payout: <span className="text-[#d4ff00] font-display text-[18px]">
+              <div className="bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-3 text-sm text-[#666]">
+                Potential return: <span className="text-[#d4ff00] font-display text-xl ml-2">
                   ${(parseFloat(form.odds || '0') * parseFloat(form.stake || '0')).toFixed(2)}
                 </span>
               </div>
             )}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="bg-[#d4ff00] text-black font-display text-[20px] tracking-[2px] px-8 py-3 hover:opacity-90 transition-all disabled:opacity-50"
-            >
+            <button type="submit" disabled={submitting}
+              className="w-full bg-[#d4ff00] text-black font-display text-xl tracking-widest py-3.5 rounded-xl hover:opacity-90 transition-all disabled:opacity-50">
               {submitting ? 'LOGGING...' : 'LOG PUNT →'}
             </button>
           </form>
@@ -190,59 +147,69 @@ export default function PuntsPage() {
       )}
 
       {/* Filter tabs */}
-      <div className="flex border border-[#2a2a2a] mb-4">
-        {(['all', 'pending', 'won', 'lost'] as const).map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`flex-1 py-2.5 text-[10px] tracking-[2px] uppercase transition-all ${
-              filter === f ? 'bg-[#1c1c1c] text-white' : 'text-[#555] hover:text-white'
-            }`}
-          >
-            {f} {f === 'all' ? `(${punts.length})` : `(${punts.filter(p => p.result === f).length})`}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {FILTERS.map(f => (
+          <button key={f} onClick={() => setFilter(f)}
+            className={`text-xs tracking-widest uppercase px-4 py-2 rounded-full border transition-all ${
+              filter === f ? 'bg-white text-black border-white font-semibold' : 'text-[#555] border-[#222] hover:text-white hover:border-[#555]'
+            }`}>
+            {f} ({f === 'all' ? punts.length : punts.filter(p => p.result === f).length})
           </button>
         ))}
       </div>
 
-      {/* Punts table */}
+      {/* Punt cards */}
       {loading ? (
-        <div className="text-center py-20 text-[#555] text-[11px] tracking-[2px] uppercase">Loading...</div>
+        <div className="space-y-3">
+          {[1,2,3].map(i => (
+            <div key={i} className="bg-[#141414] border border-[#222] rounded-2xl p-5 animate-pulse">
+              <div className="h-4 bg-[#222] rounded w-1/2 mb-2" />
+              <div className="h-3 bg-[#222] rounded w-3/4" />
+            </div>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="border border-[#2a2a2a] py-16 text-center">
-          <div className="font-display text-[48px] text-[#2a2a2a] leading-none mb-3">◎</div>
-          <div className="text-[11px] text-[#555] tracking-wide">No punts found.</div>
+        <div className="bg-[#141414] border border-[#222] rounded-2xl py-16 text-center">
+          <div className="text-4xl mb-3">🎯</div>
+          <p className="text-sm text-[#555]">No {filter !== 'all' ? filter : ''} punts yet.</p>
         </div>
       ) : (
-        <table className="w-full border-collapse border border-[#2a2a2a]">
-          <thead>
-            <tr>
-              {['Date', 'Event', 'Pick', 'Odds', 'Stake', 'Status', 'Payout'].map(h => (
-                <th key={h} className="text-left text-[9px] tracking-[2.5px] uppercase text-[#555] px-4 py-3 border-b border-[#2a2a2a] bg-[#1c1c1c]">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(punt => (
-              <tr key={punt.id} className="hover:bg-[#1c1c1c] transition-colors group">
-                <td className="px-4 py-4 text-[10px] text-[#555] border-b border-[#2a2a2a]">
-                  {new Date(punt.event_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
-                </td>
-                <td className="px-4 py-4 text-[12px] border-b border-[#2a2a2a] max-w-[200px] truncate">{punt.event}</td>
-                <td className="px-4 py-4 text-[12px] font-medium border-b border-[#2a2a2a]">{punt.pick}</td>
-                <td className="px-4 py-4 text-[13px] text-[#888] border-b border-[#2a2a2a]">{punt.odds}×</td>
-                <td className="px-4 py-4 text-[12px] border-b border-[#2a2a2a]">${punt.stake}</td>
-                <td className="px-4 py-4 border-b border-[#2a2a2a]">
-                  <span className={`text-[9px] tracking-[1.5px] uppercase px-2 py-1 ${RESULT_STYLES[punt.result] ?? ''}`}>
+        <div className="space-y-3">
+          {filtered.map((punt: any) => (
+            <div key={punt.id} className="bg-[#141414] border border-[#222] rounded-2xl p-4 hover:border-[#333] transition-colors">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] text-[#555] uppercase tracking-widest mb-1">
+                    {new Date(punt.event_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' })}
+                  </div>
+                  <div className="font-semibold text-white text-base leading-snug truncate">{punt.pick}</div>
+                  <div className="text-sm text-[#666] truncate mt-0.5">{punt.event}</div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <span className={`text-[10px] tracking-widest uppercase px-2.5 py-1 rounded-full ${RESULT_STYLE[punt.result] ?? ''}`}>
                     {punt.result}
                   </span>
-                </td>
-                <td className={`px-4 py-4 text-[13px] border-b border-[#2a2a2a] font-display ${punt.result === 'won' ? 'text-[#d4ff00]' : 'text-[#555]'}`}>
-                  {punt.result === 'won' ? `$${punt.payout}` : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#1e1e1e]">
+                <div>
+                  <div className="text-[9px] text-[#444] uppercase tracking-widest">Odds</div>
+                  <div className="font-display text-lg text-white">{punt.odds}×</div>
+                </div>
+                <div>
+                  <div className="text-[9px] text-[#444] uppercase tracking-widest">Stake</div>
+                  <div className="font-display text-lg text-white">${punt.stake}</div>
+                </div>
+                <div>
+                  <div className="text-[9px] text-[#444] uppercase tracking-widest">Return</div>
+                  <div className={`font-display text-lg ${punt.result === 'won' ? 'text-[#22c55e]' : 'text-[#444]'}`}>
+                    {punt.result === 'won' ? `$${punt.payout}` : '—'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
