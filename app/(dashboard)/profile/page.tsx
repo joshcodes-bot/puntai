@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import type { Profile } from '@/types/database'
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -21,8 +20,9 @@ export default function ProfilePage() {
       if (!user) return
       const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       if (data) {
-        setProfile(data as Profile)
-        setFullName(data.full_name ?? '')
+        const p = data as typeof profile
+        setProfile(p)
+        setFullName((data as any).full_name ?? '')
       }
       setEmail(user.email ?? '')
       setLoading(false)
