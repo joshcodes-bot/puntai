@@ -18,7 +18,7 @@ export default async function LeaderboardPage() {
     .order('rank', { ascending: true })
     .limit(50)
 
-  const entries = (rows ?? []) as Array<{
+  const entries = (rows ?? []) as any[]
   user_id: string
   full_name: string | null
   avatar_initials: string | null
