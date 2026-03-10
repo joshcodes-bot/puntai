@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import type { Profile } from '@/types/database'
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -13,15 +12,14 @@ export default function ProfilePage() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
 
-  const supabase = createClient()
-
   useEffect(() => {
     async function load() {
+      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       if (data) {
-        setProfile(data as Profile)
+        setProfile(data)
         setFullName(data.full_name ?? '')
       }
       setEmail(user.email ?? '')
@@ -35,12 +33,13 @@ export default function ProfilePage() {
     setError('')
     if (!fullName.trim()) return setError('Name is required.')
     setSaving(true)
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     const { error: err } = await supabase
       .from('profiles')
-      .update({ full_name: fullName, avatar_initials: initials, updated_at: new Date().toISOString() })
+      .update({ full_name: fullName, avatar_initials: initials, updated_at: new Date().toISOString() } as any)
       .eq('id', user.id)
     setSaving(false)
     if (err) setError(err.message)
@@ -65,7 +64,6 @@ export default function ProfilePage() {
       </div>
 
       <div className="grid grid-cols-[260px_1fr] gap-0 border border-[#2a2a2a]">
-        {/* Left card */}
         <div className="p-8 border-r border-[#2a2a2a] flex flex-col items-center text-center">
           <div className="w-20 h-20 bg-[#d4ff00] text-black font-display text-[28px] flex items-center justify-center mb-5">
             {initials}
@@ -78,8 +76,6 @@ export default function ProfilePage() {
           <div className="text-[10px] text-[#555] mt-3">
             Since {profile?.created_at ? new Date(profile.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : '—'}
           </div>
-
-          {/* Stats summary */}
           <div className="w-full mt-8 space-y-3">
             {[
               { label: 'Account ID', value: profile?.id?.slice(0, 8).toUpperCase() ?? '—' },
@@ -93,13 +89,11 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Right: edit form */}
         <div className="p-8">
           <h2 className="font-display text-[28px] tracking-wide mb-6">EDIT DETAILS</h2>
           <form onSubmit={saveProfile} className="space-y-5">
             {error && <div className="text-[11px] text-[#ff2d2d] border border-[#ff2d2d] px-4 py-3">{error}</div>}
             {saved && <div className="text-[11px] text-[#d4ff00] border border-[#d4ff00] px-4 py-3">✓ Profile updated</div>}
-
             <div>
               <label className="block text-[9px] tracking-[3px] uppercase text-[#555] mb-2">Full Name</label>
               <input
@@ -108,7 +102,6 @@ export default function ProfilePage() {
                 className="w-full bg-[#1c1c1c] border border-[#2a2a2a] text-white font-mono text-[13px] px-4 py-3 outline-none focus:border-[#d4ff00] transition-colors"
               />
             </div>
-
             <div>
               <label className="block text-[9px] tracking-[3px] uppercase text-[#555] mb-2">Email Address</label>
               <input
@@ -118,14 +111,12 @@ export default function ProfilePage() {
               />
               <p className="text-[9px] text-[#555] mt-1.5 tracking-wide">Email cannot be changed here.</p>
             </div>
-
             <div>
               <label className="block text-[9px] tracking-[3px] uppercase text-[#555] mb-2">Membership Tier</label>
               <div className="bg-[#111] border border-[#2a2a2a] px-4 py-3 text-[#555] font-mono text-[13px]">
                 {profile?.tier ?? 'Bronze'} — upgrades unlock automatically based on activity
               </div>
             </div>
-
             <button
               type="submit"
               disabled={saving}
@@ -135,7 +126,6 @@ export default function ProfilePage() {
             </button>
           </form>
 
-          {/* Danger zone */}
           <div className="mt-10 pt-8 border-t border-[#2a2a2a]">
             <h3 className="font-display text-[20px] tracking-wide text-[#ff2d2d] mb-4">DANGER ZONE</h3>
             <div className="border border-[#ff2d2d20] p-4 flex items-center justify-between">

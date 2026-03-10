@@ -11,15 +11,14 @@ export default async function LeaderboardPage() {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Query leaderboard — aggregate from punts + profiles
   const { data: rows } = await supabase
     .from('leaderboard_view')
     .select('*')
     .order('rank', { ascending: true })
     .limit(50)
 
-  const entries = rows ?? []
-  const userRank = entries.findIndex(e => e.user_id === user?.id) + 1
+  const entries = (rows ?? []) as any[]
+  const userRank = entries.findIndex((e: any) => e.user_id === user?.id) + 1
 
   return (
     <div className="p-10 max-w-[900px] mx-auto animate-fade-up">
@@ -30,7 +29,6 @@ export default async function LeaderboardPage() {
         <p className="text-[11px] text-[#555] mt-2">Ranked by net profit · Updated live</p>
       </div>
 
-      {/* Your rank callout */}
       {userRank > 0 && (
         <div className="border border-[#d4ff00] px-6 py-4 mb-8 flex items-center justify-between animate-fade-up-1">
           <div className="text-[11px] tracking-[2px] uppercase text-[#555]">Your Rank</div>
@@ -53,7 +51,7 @@ export default async function LeaderboardPage() {
             </tr>
           </thead>
           <tbody>
-            {entries.map((entry, i) => {
+            {entries.map((entry: any, i: number) => {
               const isMe = entry.user_id === user?.id
               return (
                 <tr
@@ -90,9 +88,7 @@ export default async function LeaderboardPage() {
                       </div>
                     </div>
                   </td>
-                  <td className={`px-4 py-4 border-b border-[#2a2a2a] font-display text-[18px] leading-none ${
-                    entry.total_profit >= 0 ? 'text-[#d4ff00]' : 'text-[#ff2d2d]'
-                  }`}>
+                  <td className={`px-4 py-4 border-b border-[#2a2a2a] font-display text-[18px] leading-none ${entry.total_profit >= 0 ? 'text-[#d4ff00]' : 'text-[#ff2d2d]'}`}>
                     {entry.total_profit >= 0 ? '+' : ''}${Number(entry.total_profit).toFixed(0)}
                   </td>
                 </tr>
