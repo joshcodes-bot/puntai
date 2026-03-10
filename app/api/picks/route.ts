@@ -1,13 +1,23 @@
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 const SPORT_KEYS = [
-  { key: 'rugbyleague_nrl',           label: 'NRL',         emoji: '🏉' },
-  { key: 'rugbyunion',                label: 'Rugby Union',  emoji: '🏉' },
-  { key: 'soccer_epl',                label: 'EPL',          emoji: '⚽' },
-  { key: 'soccer_uefa_champs_league', label: 'UCL',          emoji: '⚽' },
-  { key: 'soccer_uefa_europa_league', label: 'Europa',       emoji: '⚽' },
-  { key: 'basketball_nba',            label: 'NBA',          emoji: '🏀' },
-  { key: 'mma_mixed_martial_arts',    label: 'UFC/MMA',      emoji: '🥊' },
+  { key: 'rugbyleague_nrl',                label: 'NRL',         emoji: '🏉' },
+  { key: 'rugbyunion_six_nations',         label: 'Six Nations', emoji: '🏉' },
+  { key: 'soccer_epl',                     label: 'EPL',         emoji: '⚽' },
+  { key: 'soccer_uefa_champs_league',      label: 'UCL',         emoji: '⚽' },
+  { key: 'soccer_uefa_europa_league',      label: 'Europa',      emoji: '⚽' },
+  { key: 'soccer_australia_aleague',       label: 'A-League',    emoji: '⚽' },
+  { key: 'soccer_germany_bundesliga',      label: 'Bundesliga',  emoji: '⚽' },
+  { key: 'soccer_spain_la_liga',           label: 'La Liga',     emoji: '⚽' },
+  { key: 'soccer_italy_serie_a',           label: 'Serie A',     emoji: '⚽' },
+  { key: 'basketball_nba',                 label: 'NBA',         emoji: '🏀' },
+  { key: 'basketball_nbl',                 label: 'NBL',         emoji: '🏀' },
+  { key: 'tennis_atp_indian_wells',        label: 'Tennis',      emoji: '🎾' },
+  { key: 'tennis_wta_indian_wells',        label: 'Tennis',      emoji: '🎾' },
+  { key: 'mma_mixed_martial_arts',         label: 'MMA',         emoji: '🥊' },
+  { key: 'icehockey_nhl',                  label: 'NHL',         emoji: '🏒' },
 ]
 
 async function fetchOddsForSport(sportKey: string, apiKey: string, from: string, to: string) {
