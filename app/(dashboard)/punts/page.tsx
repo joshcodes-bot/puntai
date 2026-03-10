@@ -55,7 +55,7 @@ export default function PuntsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { error: err } = await supabase.from('punts').insert({
+    const { error: err } = await (supabase.from('punts') as any).insert({
       user_id: user.id,
       event: form.event,
       pick: form.pick,
