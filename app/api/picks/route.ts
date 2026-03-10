@@ -1,53 +1,63 @@
 import { NextResponse } from 'next/server'
 
-// Sport keys for The Odds API
 const SPORT_KEYS = [
-  { key: 'rugbyleague_nrl',          label: 'NRL',      emoji: '🏉' },
-  { key: 'rugbyunion_world_cup',     label: 'Rugby Union', emoji: '🏉' },
-  { key: 'rugbyunion',               label: 'Rugby Union', emoji: '🏉' },
-  { key: 'soccer_epl',               label: 'EPL',      emoji: '⚽' },
-  { key: 'soccer_uefa_champs_league',label: 'UCL',      emoji: '⚽' },
-  { key: 'soccer_uefa_europa_league',label: 'Europa',   emoji: '⚽' },
-  { key: 'basketball_nba',           label: 'NBA',      emoji: '🏀' },
-  { key: 'mma_mixed_martial_arts',   label: 'UFC/MMA',  emoji: '🥊' },
+  { key: 'rugbyleague_nrl',           label: 'NRL',         emoji: '🏉' },
+  { key: 'rugbyunion',                label: 'Rugby Union',  emoji: '🏉' },
+  { key: 'soccer_epl',                label: 'EPL',          emoji: '⚽' },
+  { key: 'soccer_uefa_champs_league', label: 'UCL',          emoji: '⚽' },
+  { key: 'soccer_uefa_europa_league', label: 'Europa',       emoji: '⚽' },
+  { key: 'basketball_nba',            label: 'NBA',          emoji: '🏀' },
+  { key: 'mma_mixed_martial_arts',    label: 'UFC/MMA',      emoji: '🥊' },
 ]
 
-async function fetchOddsForSport(sportKey: string, apiKey: string) {
+async function fetchOddsForSport(sportKey: string, apiKey: string, from: string, to: string) {
   try {
-    const now = new Date()
-    const todayEnd = new Date(now)
-    todayEnd.setHours(23, 59, 59, 999)
-
-    const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/?apiKey=${apiKey}&regions=au&markets=h2h&oddsFormat=decimal&commenceTimeFrom=${now.toISOString()}&commenceTimeTo=${todayEnd.toISOString()}`
+    const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/?apiKey=${apiKey}&regions=au&markets=h2h&oddsFormat=decimal&commenceTimeFrom=${from}&commenceTimeTo=${to}`
     const res = await fetch(url, { next: { revalidate: 1800 } })
     if (!res.ok) return []
     return await res.json()
-  } catch {
-    return []
-  }
+  } catch { return [] }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const oddsApiKey = process.env.ODDS_API_KEY
-    const anthropicKey = process.env.ANTHROPIC_API_KEY
+    const { searchParams } = new URL(req.url)
+    const day = searchParams.get('day') === 'tomorrow' ? 'tomorrow' : 'today'
 
+    const oddsApiKey  = process.env.ODDS_API_KEY
+    const anthropicKey = process.env.ANTHROPIC_API_KEY
     if (!oddsApiKey || !anthropicKey) {
       return NextResponse.json({ picks: [], error: 'Missing API keys' }, { status: 500 })
     }
 
-    // Fetch today's games across all sports in parallel
+    // Build time window
+    const now = new Date()
+    let from: Date, to: Date
+
+    if (day === 'tomorrow') {
+      from = new Date(now)
+      from.setDate(from.getDate() + 1)
+      from.setHours(0, 0, 0, 0)
+      to = new Date(from)
+      to.setHours(23, 59, 59, 999)
+    } else {
+      from = new Date(now)
+      to = new Date(now)
+      to.setHours(23, 59, 59, 999)
+    }
+
+    // Fetch all sports in parallel
     const results = await Promise.all(
       SPORT_KEYS.map(async (s) => {
-        const games = await fetchOddsForSport(s.key, oddsApiKey)
+        const games = await fetchOddsForSport(s.key, oddsApiKey, from.toISOString(), to.toISOString())
         return { ...s, games }
       })
     )
 
-    // Flatten and format games with real odds
+    // Flatten into analysable game list
     const allGames: any[] = []
     for (const sport of results) {
-      for (const game of sport.games.slice(0, 5)) {
+      for (const game of (sport.games ?? []).slice(0, 5)) {
         const bookmaker = game.bookmakers?.[0]
         const h2h = bookmaker?.markets?.find((m: any) => m.key === 'h2h')
         if (!h2h) continue
@@ -68,12 +78,18 @@ export async function GET() {
     }
 
     if (allGames.length === 0) {
-      return NextResponse.json({ picks: [], error: 'No games found for today. Check back later or try tomorrow.', generatedAt: new Date().toISOString() })
+      const label = day === 'tomorrow' ? 'tomorrow' : 'today'
+      return NextResponse.json({
+        picks: [],
+        error: `No games found for ${label}. The leagues may be on a break, or odds aren't posted yet.`,
+        generatedAt: new Date().toISOString()
+      })
     }
 
-    const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    const dateLabel = day === 'tomorrow'
+      ? from.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+      : new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 
-    // Send real games to Claude for analysis
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -86,41 +102,35 @@ export async function GET() {
         max_tokens: 2048,
         messages: [{
           role: 'user',
-          content: `You are a sharp sports betting analyst for PUNT.AI, an AI betting platform used by serious punters in Australia/NZ. Today is ${today}.
+          content: `You are a sharp sports betting analyst for PUNT.AI, used by serious punters in Australia/NZ. The games below are on ${dateLabel}.
 
-Here are TODAY'S REAL upcoming games with actual bookmaker odds (Australian decimal odds):
+Here are the REAL games with actual Australian bookmaker odds:
 
 ${JSON.stringify(allGames, null, 2)}
 
-Your job is to select the BEST VALUE BETS from these real games. Be a sharp bettor:
-- Look for value where the odds seem too generous
-- Consider recent form, head-to-head records, home advantage, injuries if known
-- Do NOT just pick favourites — pick VALUE
-- Be specific and confident in your reasoning
-- Only pick games from the list above — these are real games happening today
+Select the 4-6 BEST VALUE BETS. Be a sharp bettor:
+- Find value where odds seem too generous for the actual probability
+- Consider form, head-to-head, home advantage, travel, key absences
+- Do NOT just back favourites — back VALUE
+- Only use games from the list above
 
-Select 4-6 of the best picks. For each pick, respond ONLY with a JSON array (no markdown, no backticks, no explanation outside the JSON):
+Respond ONLY with a JSON array, no markdown, no backticks:
 
 [
   {
     "id": 1,
     "sport": "EPL",
-    "event": "exact event name from the data",
+    "event": "exact event name from data",
     "market": "Match Winner",
-    "pick": "exact team name from the data",
+    "pick": "exact team name from data",
     "odds": 2.10,
     "confidence": 78,
-    "reasoning": "2-3 sentences of sharp analysis explaining why this is value",
-    "commenceTime": "time from the data"
+    "reasoning": "2-3 sharp sentences on why this is value",
+    "commenceTime": "commence_time from data"
   }
 ]
 
-Rules:
-- Use EXACT team names and odds from the data provided
-- confidence between 55 and 92
-- reasoning must be genuine sharp analysis, not generic
-- prefer picks with odds between 1.60 and 3.50 for value
-- vary sports if possible`
+Rules: exact names/odds from data · confidence 55–92 · reasoning must be specific · prefer odds 1.60–3.50`
         }]
       })
     })
@@ -130,13 +140,10 @@ Rules:
 
     let picks
     try {
-      const clean = text.replace(/```json|```/g, '').trim()
-      picks = JSON.parse(clean)
-    } catch {
-      picks = []
-    }
+      picks = JSON.parse(text.replace(/```json|```/g, '').trim())
+    } catch { picks = [] }
 
-    return NextResponse.json({ picks, generatedAt: new Date().toISOString(), gamesAnalysed: allGames.length })
+    return NextResponse.json({ picks, generatedAt: new Date().toISOString(), gamesAnalysed: allGames.length, day })
   } catch (err) {
     console.error('AI picks error:', err)
     return NextResponse.json({ picks: [], error: 'Failed to generate picks' }, { status: 500 })
